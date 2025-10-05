@@ -2,7 +2,6 @@ package com.spriteconverter.pixelate_api.controller;
 
 import com.spriteconverter.pixelate_api.model.ProcessingResponse;
 import com.spriteconverter.pixelate_api.service.ImageProcessingService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,15 +24,18 @@ public class ImageProcessingController {
     public ResponseEntity<ProcessingResponse> processSingleImage(
             @RequestParam("image") MultipartFile image,
             @RequestParam(required = false) Integer pixelSize,
+            @RequestParam(required = false) Integer targetWidth,
+            @RequestParam(required = false) Integer targetHeight,
+            @RequestParam(required = false, defaultValue = "true") Boolean upscaleBack,
             @RequestParam(required = false) Integer colorCount,
             @RequestParam(required = false) String paletteId,
             @RequestParam(required = false) Integer borderThickness,
-            @RequestParam(required = false) String borderColor,
-            @RequestParam(required = false, defaultValue = "true") Boolean upscaleBack
+            @RequestParam(required = false) String borderColor
     ) throws IOException {
 
         ProcessingResponse response = imageProcessingService.processImage(
-                image, pixelSize, colorCount, paletteId, borderThickness, borderColor, upscaleBack
+                image, pixelSize, targetWidth, targetHeight, upscaleBack,
+                colorCount, paletteId, borderThickness, borderColor
         );
 
         return ResponseEntity.ok(response);
@@ -43,18 +45,21 @@ public class ImageProcessingController {
     public ResponseEntity<List<ProcessingResponse>> processBatchImages(
             @RequestParam("images") List<MultipartFile> images,
             @RequestParam(required = false) Integer pixelSize,
+            @RequestParam(required = false) Integer targetWidth,
+            @RequestParam(required = false) Integer targetHeight,
+            @RequestParam(required = false, defaultValue = "true") Boolean upscaleBack,
             @RequestParam(required = false) Integer colorCount,
             @RequestParam(required = false) String paletteId,
             @RequestParam(required = false) Integer borderThickness,
-            @RequestParam(required = false) String borderColor,
-            @RequestParam(required = false, defaultValue = "true") Boolean upscaleBack
+            @RequestParam(required = false) String borderColor
     ) throws IOException {
 
         List<ProcessingResponse> responses = new ArrayList<>();
 
         for (MultipartFile image : images) {
             ProcessingResponse response = imageProcessingService.processImage(
-                    image, pixelSize, colorCount, paletteId, borderThickness, borderColor, upscaleBack
+                    image, pixelSize, targetWidth, targetHeight, upscaleBack,
+                    colorCount, paletteId, borderThickness, borderColor
             );
             responses.add(response);
         }

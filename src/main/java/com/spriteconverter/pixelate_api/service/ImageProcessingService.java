@@ -20,11 +20,13 @@ public class ImageProcessingService {
     public ProcessingResponse processImage(
             MultipartFile file,
             Integer pixelSize,
+            Integer targetWidth,
+            Integer targetHeight,
+            Boolean upscaleBack,
             Integer colorCount,
             String paletteId,
             Integer borderThickness,
-            String borderColor,
-            Boolean upscaleBack
+            String borderColor
     ) throws IOException {
 
         // Convert MultipartFile to BufferedImage
@@ -36,8 +38,15 @@ public class ImageProcessingService {
 
         // Step 1: Pixelation
         if (pixelSize != null && pixelSize > 1) {
-            boolean shouldUpscale = upscaleBack != null ? upscaleBack : true; // default true
-            processedImage = pixelationService.pixelate(processedImage, pixelSize, shouldUpscale);
+            boolean shouldUpscale = upscaleBack != null ? upscaleBack : true;
+            processedImage = pixelationService.pixelateByFactor(processedImage, pixelSize, shouldUpscale);
+        } else if (targetWidth != null && targetWidth > 0) {
+            boolean shouldUpscale = upscaleBack != null ? upscaleBack : true;
+            processedImage = pixelationService.pixelateToWidth(processedImage, targetWidth, shouldUpscale);
+
+        } else if (targetHeight != null && targetHeight > 0) {
+            boolean shouldUpscale = upscaleBack != null ? upscaleBack : true;
+            processedImage = pixelationService.pixelateToHeight(processedImage, targetHeight, shouldUpscale);
         }
 
         // Step 2: Color Quantization (TODO)
