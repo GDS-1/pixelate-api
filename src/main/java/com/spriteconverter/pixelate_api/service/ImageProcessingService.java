@@ -1,6 +1,7 @@
 package com.spriteconverter.pixelate_api.service;
 
 import com.spriteconverter.pixelate_api.model.ProcessingResponse;
+import com.spriteconverter.pixelate_api.model.QuantizationStrategy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -12,10 +13,15 @@ import java.io.IOException;
 import java.util.Base64;
 
 @Service
-@RequiredArgsConstructor
 public class ImageProcessingService {
 
     private final PixelationService pixelationService;
+    private final ColorQuantizationService colorQuantizationService;
+
+    public ImageProcessingService(PixelationService pixelationService, ColorQuantizationService colorQuantizationService) {
+        this.pixelationService = pixelationService;
+        this.colorQuantizationService = colorQuantizationService;
+    }
 
     public ProcessingResponse processImage(
             MultipartFile file,
@@ -24,16 +30,15 @@ public class ImageProcessingService {
             Integer targetHeight,
             Boolean upscaleBack,
             Integer colorCount,
+            QuantizationStrategy quantizationStrategy,
             String paletteId,
             Integer borderThickness,
             String borderColor
     ) throws IOException {
 
-        // Convert MultipartFile to BufferedImage
         BufferedImage image = ImageIO.read(file.getInputStream());
         String originalSize = image.getWidth() + "x" + image.getHeight();
 
-        // Processing pipeline - each step is optional based on parameters
         BufferedImage processedImage = image;
 
         // Step 1: Pixelation
@@ -50,9 +55,13 @@ public class ImageProcessingService {
         }
 
         // Step 2: Color Quantization (TODO)
-        // if (colorCount != null) {
-        //     processedImage = colorQuantizationService.quantize(processedImage, colorCount);
-        // }
+        if (colorCount != null && colorCount > 0 && colorCount < 257) {
+            processedImage = colorQuantizationService.quantize(
+                    processedImage,
+                    colorCount,
+                    quantizationStrategy
+            );
+        }
 
         // Step 3: Palette Application (TODO)
         // if (paletteId != null) {

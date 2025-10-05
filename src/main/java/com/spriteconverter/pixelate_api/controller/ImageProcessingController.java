@@ -1,6 +1,7 @@
 package com.spriteconverter.pixelate_api.controller;
 
 import com.spriteconverter.pixelate_api.model.ProcessingResponse;
+import com.spriteconverter.pixelate_api.model.QuantizationStrategy;
 import com.spriteconverter.pixelate_api.service.ImageProcessingService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +29,7 @@ public class ImageProcessingController {
             @RequestParam(required = false) Integer targetHeight,
             @RequestParam(required = false, defaultValue = "true") Boolean upscaleBack,
             @RequestParam(required = false) Integer colorCount,
+            @RequestParam(required = false) QuantizationStrategy quantizationStrategy,
             @RequestParam(required = false) String paletteId,
             @RequestParam(required = false) Integer borderThickness,
             @RequestParam(required = false) String borderColor
@@ -35,7 +37,7 @@ public class ImageProcessingController {
 
         ProcessingResponse response = imageProcessingService.processImage(
                 image, pixelSize, targetWidth, targetHeight, upscaleBack,
-                colorCount, paletteId, borderThickness, borderColor
+                colorCount, quantizationStrategy, paletteId, borderThickness, borderColor
         );
 
         return ResponseEntity.ok(response);
@@ -49,6 +51,7 @@ public class ImageProcessingController {
             @RequestParam(required = false) Integer targetHeight,
             @RequestParam(required = false, defaultValue = "true") Boolean upscaleBack,
             @RequestParam(required = false) Integer colorCount,
+            @RequestParam(required = false) QuantizationStrategy quantizationStrategy,
             @RequestParam(required = false) String paletteId,
             @RequestParam(required = false) Integer borderThickness,
             @RequestParam(required = false) String borderColor
@@ -59,7 +62,7 @@ public class ImageProcessingController {
         for (MultipartFile image : images) {
             ProcessingResponse response = imageProcessingService.processImage(
                     image, pixelSize, targetWidth, targetHeight, upscaleBack,
-                    colorCount, paletteId, borderThickness, borderColor
+                    colorCount, quantizationStrategy, paletteId, borderThickness, borderColor
             );
             responses.add(response);
         }
