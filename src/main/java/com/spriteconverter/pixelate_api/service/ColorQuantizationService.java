@@ -26,7 +26,7 @@ public class ColorQuantizationService {
             case WEIGHTED:
                 palette = weightedMedianCut(image, targetColorCount);
                 break;
-            case KMEANS:
+            case K_MEANS:
                 palette = kmeansQuantization(image, targetColorCount);
                 break;
             case MEDIAN_CUT:

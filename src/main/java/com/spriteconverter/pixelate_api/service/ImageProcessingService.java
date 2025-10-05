@@ -1,5 +1,6 @@
 package com.spriteconverter.pixelate_api.service;
 
+import com.spriteconverter.pixelate_api.model.ProcessingRequest;
 import com.spriteconverter.pixelate_api.model.ProcessingResponse;
 import com.spriteconverter.pixelate_api.model.QuantizationStrategy;
 import lombok.RequiredArgsConstructor;
@@ -17,71 +18,71 @@ public class ImageProcessingService {
 
     private final PixelationService pixelationService;
     private final ColorQuantizationService colorQuantizationService;
+    private final PaletteService paletteService;
 
-    public ImageProcessingService(PixelationService pixelationService, ColorQuantizationService colorQuantizationService) {
+    public ImageProcessingService(PixelationService pixelationService, ColorQuantizationService colorQuantizationService, PaletteService paletteService) {
         this.pixelationService = pixelationService;
         this.colorQuantizationService = colorQuantizationService;
+        this.paletteService = paletteService;
     }
 
-    public ProcessingResponse processImage(
-            MultipartFile file,
-            Integer pixelSize,
-            Integer targetWidth,
-            Integer targetHeight,
-            Boolean upscaleBack,
-            Integer colorCount,
-            QuantizationStrategy quantizationStrategy,
-            String paletteId,
-            Integer borderThickness,
-            String borderColor
-    ) throws IOException {
+    public ProcessingResponse processImage(MultipartFile file, ProcessingRequest request) throws IOException {
 
+        // Convert MultipartFile to BufferedImage
         BufferedImage image = ImageIO.read(file.getInputStream());
         String originalSize = image.getWidth() + "x" + image.getHeight();
 
         BufferedImage processedImage = image;
 
         // Step 1: Pixelation
-        if (pixelSize != null && pixelSize > 1) {
-            boolean shouldUpscale = upscaleBack != null ? upscaleBack : true;
-            processedImage = pixelationService.pixelateByFactor(processedImage, pixelSize, shouldUpscale);
-        } else if (targetWidth != null && targetWidth > 0) {
-            boolean shouldUpscale = upscaleBack != null ? upscaleBack : true;
-            processedImage = pixelationService.pixelateToWidth(processedImage, targetWidth, shouldUpscale);
-
-        } else if (targetHeight != null && targetHeight > 0) {
-            boolean shouldUpscale = upscaleBack != null ? upscaleBack : true;
-            processedImage = pixelationService.pixelateToHeight(processedImage, targetHeight, shouldUpscale);
-        }
-
-        // Step 2: Color Quantization (TODO)
-        if (colorCount != null && colorCount > 0 && colorCount < 257) {
-            processedImage = colorQuantizationService.quantize(
+        if (request.getPixelSize() != null && request.getPixelSize() > 1) {
+            processedImage = pixelationService.pixelateByFactor(
                     processedImage,
-                    colorCount,
-                    quantizationStrategy
+                    request.getPixelSize(),
+                    request.getUpscaleBack()
+            );
+        } else if (request.getTargetWidth() != null && request.getTargetWidth() > 0) {
+            processedImage = pixelationService.pixelateToWidth(
+                    processedImage,
+                    request.getTargetWidth(),
+                    request.getUpscaleBack()
+            );
+        } else if (request.getTargetHeight() != null && request.getTargetHeight() > 0) {
+            processedImage = pixelationService.pixelateToHeight(
+                    processedImage,
+                    request.getTargetHeight(),
+                    request.getUpscaleBack()
             );
         }
 
-        // Step 3: Palette Application (TODO)
-        // if (paletteId != null) {
-        //     processedImage = paletteService.applyPalette(processedImage, paletteId);
-        // }
+        // Step 2: Color Quantization
+        if (request.getColorCount() != null && request.getColorCount() > 0) {
+            processedImage = colorQuantizationService.quantize(
+                    processedImage,
+                    request.getColorCount(),
+                    request.getQuantizationStrategy()
+            );
+        }
+
+        // Step 3: Palette Application
+        if (request.getPalette() != null && !request.getPalette().isEmpty()) {
+            boolean autoMapping = request.getAutoColorMapping() != null ? request.getAutoColorMapping() : true;
+            processedImage = paletteService.applyPalette(processedImage, request.getPalette(), autoMapping);
+        }
 
         // Step 4: Border (TODO)
-        // if (borderThickness != null && borderColor != null) {
-        //     processedImage = borderService.addBorder(processedImage, borderThickness, borderColor);
+        // if (request.getBorderThickness() != null && request.getBorderColor() != null) {
+        //     processedImage = borderService.addBorder(...);
         // }
 
-        // Convert processed image to base64
+        // Convert to response...
         String base64Image = convertToBase64(processedImage);
         String processedSize = processedImage.getWidth() + "x" + processedImage.getHeight();
 
-        // Create metadata
         ProcessingResponse.ImageMetadata metadata = new ProcessingResponse.ImageMetadata(
                 originalSize,
                 processedSize,
-                null // TODO: Calculate colors used
+                null
         );
 
         return new ProcessingResponse(base64Image, metadata);
