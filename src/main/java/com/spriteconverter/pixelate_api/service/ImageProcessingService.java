@@ -1,0 +1,78 @@
+package com.spriteconverter.pixelate_api.service;
+
+import com.spriteconverter.pixelate_api.model.ProcessingResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Base64;
+
+@Service
+@RequiredArgsConstructor
+public class ImageProcessingService {
+
+    private final PixelationService pixelationService;
+
+    public ProcessingResponse processImage(
+            MultipartFile file,
+            Integer pixelSize,
+            Integer colorCount,
+            String paletteId,
+            Integer borderThickness,
+            String borderColor,
+            Boolean upscaleBack
+    ) throws IOException {
+
+        // Convert MultipartFile to BufferedImage
+        BufferedImage image = ImageIO.read(file.getInputStream());
+        String originalSize = image.getWidth() + "x" + image.getHeight();
+
+        // Processing pipeline - each step is optional based on parameters
+        BufferedImage processedImage = image;
+
+        // Step 1: Pixelation
+        if (pixelSize != null && pixelSize > 1) {
+            boolean shouldUpscale = upscaleBack != null ? upscaleBack : true; // default true
+            processedImage = pixelationService.pixelate(processedImage, pixelSize, shouldUpscale);
+        }
+
+        // Step 2: Color Quantization (TODO)
+        // if (colorCount != null) {
+        //     processedImage = colorQuantizationService.quantize(processedImage, colorCount);
+        // }
+
+        // Step 3: Palette Application (TODO)
+        // if (paletteId != null) {
+        //     processedImage = paletteService.applyPalette(processedImage, paletteId);
+        // }
+
+        // Step 4: Border (TODO)
+        // if (borderThickness != null && borderColor != null) {
+        //     processedImage = borderService.addBorder(processedImage, borderThickness, borderColor);
+        // }
+
+        // Convert processed image to base64
+        String base64Image = convertToBase64(processedImage);
+        String processedSize = processedImage.getWidth() + "x" + processedImage.getHeight();
+
+        // Create metadata
+        ProcessingResponse.ImageMetadata metadata = new ProcessingResponse.ImageMetadata(
+                originalSize,
+                processedSize,
+                null // TODO: Calculate colors used
+        );
+
+        return new ProcessingResponse(base64Image, metadata);
+    }
+
+    private String convertToBase64(BufferedImage image) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", baos);
+        byte[] imageBytes = baos.toByteArray();
+        return Base64.getEncoder().encodeToString(imageBytes);
+    }
+}
