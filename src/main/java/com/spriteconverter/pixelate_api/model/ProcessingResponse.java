@@ -3,6 +3,8 @@ package com.spriteconverter.pixelate_api.model;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @AllArgsConstructor
 public class ProcessingResponse {
@@ -15,5 +17,6 @@ public class ProcessingResponse {
         private String originalSize;
         private String processedSize;
         private Integer colorsUsed;
+        private List<String> colors;
     }
 }

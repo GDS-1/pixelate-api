@@ -2,16 +2,19 @@ package com.spriteconverter.pixelate_api.service;
 
 import com.spriteconverter.pixelate_api.model.ProcessingRequest;
 import com.spriteconverter.pixelate_api.model.ProcessingResponse;
-import com.spriteconverter.pixelate_api.model.QuantizationStrategy;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ImageProcessingService {
@@ -19,11 +22,13 @@ public class ImageProcessingService {
     private final PixelationService pixelationService;
     private final ColorQuantizationService colorQuantizationService;
     private final PaletteService paletteService;
+    private final BorderService borderService;
 
-    public ImageProcessingService(PixelationService pixelationService, ColorQuantizationService colorQuantizationService, PaletteService paletteService) {
+    public ImageProcessingService(PixelationService pixelationService, ColorQuantizationService colorQuantizationService, PaletteService paletteService, BorderService borderService) {
         this.pixelationService = pixelationService;
         this.colorQuantizationService = colorQuantizationService;
         this.paletteService = paletteService;
+        this.borderService = borderService;
     }
 
     public ProcessingResponse processImage(MultipartFile file, ProcessingRequest request) throws IOException {
@@ -70,22 +75,53 @@ public class ImageProcessingService {
             processedImage = paletteService.applyPalette(processedImage, request.getPalette(), autoMapping);
         }
 
-        // Step 4: Border (TODO)
-        // if (request.getBorderThickness() != null && request.getBorderColor() != null) {
-        //     processedImage = borderService.addBorder(...);
-        // }
+        // Step 4: Border
+        if (request.getBorderThickness() != null && request.getBorderColor() != null) {
+            processedImage = borderService.addBorder(
+                    processedImage,
+                    request.getBorderThickness(),
+                    request.getBorderColor()
+            );
+        }
 
-        // Convert to response...
+        List<String> colors = extractColors(processedImage);
+
         String base64Image = convertToBase64(processedImage);
         String processedSize = processedImage.getWidth() + "x" + processedImage.getHeight();
 
         ProcessingResponse.ImageMetadata metadata = new ProcessingResponse.ImageMetadata(
                 originalSize,
                 processedSize,
-                null
+                colors.size(),
+                colors
         );
 
         return new ProcessingResponse(base64Image, metadata);
+    }
+
+    private List<String> extractColors(BufferedImage image) {
+        Map<String, Integer> colorFrequency = new HashMap<>();
+
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                Color color = new Color(image.getRGB(x, y), true);
+
+                if (color.getAlpha() < 128) continue;
+
+                String hex = String.format("#%02x%02x%02x",
+                        color.getRed(),
+                        color.getGreen(),
+                        color.getBlue()
+                ).toUpperCase();
+
+                colorFrequency.put(hex, colorFrequency.getOrDefault(hex, 0) + 1);
+            }
+        }
+
+        return colorFrequency.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
     }
 
     private String convertToBase64(BufferedImage image) throws IOException {
