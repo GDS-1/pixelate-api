@@ -78,66 +78,72 @@ public class PaletteService {
 
     private Map<Integer, int[]> createOptimalMapping(List<Integer> imageColors, int[][] palette) {
         Map<Integer, int[]> mapping = new HashMap<>();
-        Set<Integer> usedPaletteIndices = new HashSet<>();
 
-        List<ColorPairing> pairings = new ArrayList<>();
-
-        for (int i = 0; i < imageColors.size(); i++) {
-            int imageColor = imageColors.get(i);
-            Color c = new Color(imageColor, true);
-            int[] imageRgb = new int[]{c.getRed(), c.getGreen(), c.getBlue()};
-
-            for (int j = 0; j < palette.length; j++) {
-                double distance = colorDistance(imageRgb, palette[j]);
-                pairings.add(new ColorPairing(i, j, distance, imageColor));
-            }
+        // Compute brightness for image colors
+        List<ColorBrightness> imageWithBrightness = new ArrayList<>();
+        for (int rgb : imageColors) {
+            Color c = new Color(rgb, true);
+            double brightness = 0.2126 * c.getRed() + 0.7152 * c.getGreen() + 0.0722 * c.getBlue();
+            imageWithBrightness.add(new ColorBrightness(rgb, brightness));
         }
 
-        pairings.sort(Comparator.comparingDouble(p -> p.distance));
-
-        Set<Integer> mappedImageColors = new HashSet<>();
-
-        // Greedy assignment: assign closest available pairs first
-        for (ColorPairing pairing : pairings) {
-            if (!mappedImageColors.contains(pairing.imageColorIndex) &&
-                    !usedPaletteIndices.contains(pairing.paletteIndex)) {
-
-                mapping.put(pairing.imageColorRgb, palette[pairing.paletteIndex]);
-                mappedImageColors.add(pairing.imageColorIndex);
-                usedPaletteIndices.add(pairing.paletteIndex);
-
-                if (mappedImageColors.size() == imageColors.size() ||
-                        usedPaletteIndices.size() == palette.length) {
-                    break;
-                }
-            }
+        // Compute brightness for palette
+        List<PaletteBrightness> paletteWithBrightness = new ArrayList<>();
+        for (int[] rgb : palette) {
+            double brightness = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+            paletteWithBrightness.add(new PaletteBrightness(rgb, brightness));
         }
 
-        if (mappedImageColors.size() < imageColors.size()) {
-            for (int i = 0; i < imageColors.size(); i++) {
-                if (!mappedImageColors.contains(i)) {
-                    int imageColor = imageColors.get(i);
-                    Color c = new Color(imageColor, true);
-                    int[] imageRgb = new int[]{c.getRed(), c.getGreen(), c.getBlue()};
+        // Sort both by brightness (dark → light)
+        imageWithBrightness.sort(Comparator.comparingDouble(cb -> cb.brightness));
+        paletteWithBrightness.sort(Comparator.comparingDouble(pb -> pb.brightness));
 
-                    int[] nearest = palette[usedPaletteIndices.iterator().next()];
-                    double minDist = colorDistance(imageRgb, nearest);
+        // Map one-to-one in order
+        int count = Math.min(imageWithBrightness.size(), paletteWithBrightness.size());
+        for (int i = 0; i < count; i++) {
+            mapping.put(imageWithBrightness.get(i).rgb, paletteWithBrightness.get(i).rgb);
+        }
 
-                    for (int paletteIdx : usedPaletteIndices) {
-                        double dist = colorDistance(imageRgb, palette[paletteIdx]);
-                        if (dist < minDist) {
-                            minDist = dist;
-                            nearest = palette[paletteIdx];
-                        }
-                    }
-
-                    mapping.put(imageColor, nearest);
-                }
+        // Map any remaining image colors to the nearest palette color by distance
+        if (imageWithBrightness.size() > paletteWithBrightness.size()) {
+            int[][] paletteArray = paletteWithBrightness.stream().map(pb -> pb.rgb).toArray(int[][]::new);
+            for (int i = count; i < imageWithBrightness.size(); i++) {
+                int[] nearest = findNearestColor(
+                        rgbToArray(imageWithBrightness.get(i).rgb),
+                        paletteArray
+                );
+                mapping.put(imageWithBrightness.get(i).rgb, nearest);
             }
         }
 
         return mapping;
     }
+
+    private static class ColorBrightness {
+        int rgb;
+        double brightness;
+
+        ColorBrightness(int rgb, double brightness) {
+            this.rgb = rgb;
+            this.brightness = brightness;
+        }
+    }
+
+    private static class PaletteBrightness {
+        int[] rgb;
+        double brightness;
+
+        PaletteBrightness(int[] rgb, double brightness) {
+            this.rgb = rgb;
+            this.brightness = brightness;
+        }
+    }
+
+    private int[] rgbToArray(int rgb) {
+        Color c = new Color(rgb, true);
+        return new int[]{c.getRed(), c.getGreen(), c.getBlue()};
+    }
+
 
     private static class ColorPairing {
         int imageColorIndex;
