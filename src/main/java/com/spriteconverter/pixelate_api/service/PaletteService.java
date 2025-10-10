@@ -28,6 +28,26 @@ public class PaletteService {
     }
 
     private BufferedImage mapToPaletteAuto(BufferedImage original, int[][] palette) {
+        // Extract unique colors from the image
+        Set<Integer> uniqueColorsSet = new LinkedHashSet<>();
+
+        for (int y = 0; y < original.getHeight(); y++) {
+            for (int x = 0; x < original.getWidth(); x++) {
+                Color color = new Color(original.getRGB(x, y), true);
+
+                if (color.getAlpha() >= 128) {
+                    int rgb = new Color(color.getRed(), color.getGreen(), color.getBlue()).getRGB();
+                    uniqueColorsSet.add(rgb);
+                }
+            }
+        }
+
+        List<Integer> uniqueColors = new ArrayList<>(uniqueColorsSet);
+
+        // Create optimal one-to-one mapping using greedy approach
+        Map<Integer, int[]> colorMapping = createOptimalMapping(uniqueColors, palette);
+
+        // Apply the mapping
         BufferedImage result = new BufferedImage(
                 original.getWidth(),
                 original.getHeight(),
@@ -43,19 +63,94 @@ public class PaletteService {
                     continue;
                 }
 
-                int[] rgb = new int[]{
-                        originalColor.getRed(),
-                        originalColor.getGreen(),
-                        originalColor.getBlue()
-                };
+                int rgb = new Color(originalColor.getRed(), originalColor.getGreen(), originalColor.getBlue()).getRGB();
+                int[] mappedColor = colorMapping.get(rgb);
 
-                int[] nearestColor = findNearestColor(rgb, palette);
-                Color newColor = new Color(nearestColor[0], nearestColor[1], nearestColor[2], 255);
-                result.setRGB(x, y, newColor.getRGB());
+                if (mappedColor != null) {
+                    Color newColor = new Color(mappedColor[0], mappedColor[1], mappedColor[2], 255);
+                    result.setRGB(x, y, newColor.getRGB());
+                }
             }
         }
 
         return result;
+    }
+
+    private Map<Integer, int[]> createOptimalMapping(List<Integer> imageColors, int[][] palette) {
+        Map<Integer, int[]> mapping = new HashMap<>();
+        Set<Integer> usedPaletteIndices = new HashSet<>();
+
+        List<ColorPairing> pairings = new ArrayList<>();
+
+        for (int i = 0; i < imageColors.size(); i++) {
+            int imageColor = imageColors.get(i);
+            Color c = new Color(imageColor, true);
+            int[] imageRgb = new int[]{c.getRed(), c.getGreen(), c.getBlue()};
+
+            for (int j = 0; j < palette.length; j++) {
+                double distance = colorDistance(imageRgb, palette[j]);
+                pairings.add(new ColorPairing(i, j, distance, imageColor));
+            }
+        }
+
+        pairings.sort(Comparator.comparingDouble(p -> p.distance));
+
+        Set<Integer> mappedImageColors = new HashSet<>();
+
+        // Greedy assignment: assign closest available pairs first
+        for (ColorPairing pairing : pairings) {
+            if (!mappedImageColors.contains(pairing.imageColorIndex) &&
+                    !usedPaletteIndices.contains(pairing.paletteIndex)) {
+
+                mapping.put(pairing.imageColorRgb, palette[pairing.paletteIndex]);
+                mappedImageColors.add(pairing.imageColorIndex);
+                usedPaletteIndices.add(pairing.paletteIndex);
+
+                if (mappedImageColors.size() == imageColors.size() ||
+                        usedPaletteIndices.size() == palette.length) {
+                    break;
+                }
+            }
+        }
+
+        if (mappedImageColors.size() < imageColors.size()) {
+            for (int i = 0; i < imageColors.size(); i++) {
+                if (!mappedImageColors.contains(i)) {
+                    int imageColor = imageColors.get(i);
+                    Color c = new Color(imageColor, true);
+                    int[] imageRgb = new int[]{c.getRed(), c.getGreen(), c.getBlue()};
+
+                    int[] nearest = palette[usedPaletteIndices.iterator().next()];
+                    double minDist = colorDistance(imageRgb, nearest);
+
+                    for (int paletteIdx : usedPaletteIndices) {
+                        double dist = colorDistance(imageRgb, palette[paletteIdx]);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearest = palette[paletteIdx];
+                        }
+                    }
+
+                    mapping.put(imageColor, nearest);
+                }
+            }
+        }
+
+        return mapping;
+    }
+
+    private static class ColorPairing {
+        int imageColorIndex;
+        int paletteIndex;
+        double distance;
+        int imageColorRgb;
+
+        ColorPairing(int imageColorIndex, int paletteIndex, double distance, int imageColorRgb) {
+            this.imageColorIndex = imageColorIndex;
+            this.paletteIndex = paletteIndex;
+            this.distance = distance;
+            this.imageColorRgb = imageColorRgb;
+        }
     }
 
     private BufferedImage mapToPaletteManual(BufferedImage original, int[][] palette) {

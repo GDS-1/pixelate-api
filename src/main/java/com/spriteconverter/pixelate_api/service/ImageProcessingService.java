@@ -75,6 +75,9 @@ public class ImageProcessingService {
             processedImage = paletteService.applyPalette(processedImage, request.getPalette(), autoMapping);
         }
 
+        //extract colors before border so border color does not count as color
+        List<String> colors = extractColors(processedImage);
+
         // Step 4: Border
         if (request.getBorderThickness() != null && request.getBorderColor() != null) {
             processedImage = borderService.addBorder(
@@ -84,7 +87,6 @@ public class ImageProcessingService {
             );
         }
 
-        List<String> colors = extractColors(processedImage);
 
         String base64Image = convertToBase64(processedImage);
         String processedSize = processedImage.getWidth() + "x" + processedImage.getHeight();
